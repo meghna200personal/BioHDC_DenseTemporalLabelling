@@ -8,7 +8,7 @@ TEST_DIR = DATA_DIR / "test" / "test"        # the unzip created a nested test f
 OUTPUT_DIR = PROJECT_DIR / "outputs"
 
 EVENTS = ["HandStart", "FirstDigitTouch", "BothStartLoadPhase",
-          "LiftOff", "Replace", "BothReleased"]
+          "LiftOff", "Replace", "BothReleased"] # can be fetched from respective data files later
 FS = 500                       # sampling rate in Hz
 N_CHANNELS = 32
 BAND = (7, 30)                 # bandpass edges in Hz

@@ -14,6 +14,7 @@ import pandas as pd
 import config
 from data_loading import load_series
 from metrics import dense_metrics, wandb_start, wandb_log_subject, wandb_finish
+from sklearn.metrics import confusion_matrix
 
 MODEL_MODULES = {"logreg_csp": "models.logreg_csp", "light_tcn": "models.light_tcn"} # this will change
 
@@ -27,6 +28,74 @@ def evaluate(model_name, subject):
     assert y_true.shape == y_score.shape, (y_true.shape, y_score.shape)
     return dense_metrics(y_true, y_score), info, preds
 
+# def compute_and_save_confusion_matrices(model_name, subject, preds, threshold=0.5, cutoff=75):
+#     """Computes (a) 2x2, (b) non-overlap 7-class, and (c) nearest-instant 7-class matrices
+#     using readable label names and saves them to OUTPUT_DIR.
+#     """
+#     # Load ground truth for validation series
+#     y_true_list = []
+#     y_score_list = []
+#     for s in config.VAL_SERIES:
+#         _, y_true_s = load_series(subject, s)
+#         y_true_list.append(y_true_s.T)
+#         y_score_list.append(preds[s])
+        
+#     y_true = np.concatenate(y_true_list, axis=0)
+#     y_score = np.concatenate(y_score_list, axis=0)
+
+#     target_names = list(config.EVENTS) + ["Background"]
+#     output_file = config.OUTPUT_DIR / f"confusion_matrices_{model_name}_subj{subject}.txt"
+
+#     with open(output_file, "w", encoding="utf-8") as f:
+#         # --- (a) 2x2 Binary per event ---
+#         f.write(f"=== Model: {model_name} | Subject {subject} | (a) 2x2 Binary Matrices ===\n")
+#         y_pred_bin = (y_score >= threshold).astype(int)
+#         for i, event_name in enumerate(config.EVENTS):
+#             cm = confusion_matrix(y_true[:, i], y_pred_bin[:, i], labels=[0, 1])
+#             tn, fp, fn, tp = cm.ravel()
+#             f.write(f"Event: {event_name}\n  [[TN: {tn:6d}, FP: {fp:6d}],\n   [FN: {fn:6d}, TP: {tp:6d}]]\n")
+
+#         # --- (b) 7-Class Non-Overlap ---
+#         f.write(f"\n=== (b) 7-Class Confusion Matrix (Non-Overlap Frames Only) ===\n")
+#         n_frames, n_events = y_true.shape
+#         active_counts = y_true.sum(axis=1)
+#         non_overlap_mask = active_counts <= 1
+#         dropped_count = n_frames - non_overlap_mask.sum()
+#         f.write(f"Total frames: {n_frames}, Kept: {non_overlap_mask.sum()}, Dropped overlap: {dropped_count} ({dropped_count/n_frames:.2%})\n")
+        
+#         y_tf, y_sf = y_true[non_overlap_mask], y_score[non_overlap_mask]
+#         true_c = np.full(y_tf.shape[0], len(config.EVENTS), dtype=int)
+#         for i in range(n_events):
+#             true_c[y_tf[:, i] == 1] = i
+#         max_s = y_sf.max(axis=1)
+#         pred_c = np.full(y_sf.shape[0], len(config.EVENTS), dtype=int)
+#         valid = max_s >= threshold
+#         pred_c[valid] = y_sf[valid].argmax(axis=1)
+        
+#         cm_b = confusion_matrix(true_c, pred_c, labels=list(range(len(target_names))))
+#         f.write(pd.DataFrame(cm_b, index=target_names, columns=target_names).to_string() + "\n")
+
+#         # --- (c) Nearest-Instant Labelling ---
+#         f.write(f"\n=== (c) 7-Class Confusion Matrix (Nearest-Instant, cutoff={cutoff}) ===\n")
+#         onsets_per_event = [np.where(np.diff(y_true[:, i], prepend=0) == 1)[0] for i in range(n_events)]
+#         true_c_c = np.full(n_frames, len(config.EVENTS), dtype=int)
+#         for t in range(n_frames):
+#             min_dist, closest = float('inf'), len(config.EVENTS)
+#             for i in range(n_events):
+#                 if len(onsets_per_event[i]) > 0:
+#                     d_min = np.abs(onsets_per_event[i] - t).min()
+#                     if d_min < min_dist:
+#                         min_dist, closest = d_min, i
+#             true_c_c[t] = closest if min_dist <= cutoff else len(config.EVENTS)
+            
+#         pred_c_c = np.full(n_frames, len(config.EVENTS), dtype=int)
+#         valid_c = y_score.max(axis=1) >= threshold
+#         pred_c_c[valid_c] = y_score[valid_c].argmax(axis=1)
+        
+#         cm_c = confusion_matrix(true_c_c, pred_c_c, labels=list(range(len(target_names))))
+#         f.write(pd.DataFrame(cm_c, index=target_names, columns=target_names).to_string() + "\n")
+
+#     print(f"  [CM Saved] {output_file.name}")
 
 def main():
     ap = argparse.ArgumentParser()
