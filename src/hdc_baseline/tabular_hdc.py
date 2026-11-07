@@ -36,7 +36,7 @@ class TabularHDCClassifier:
 
     def _quantize(self, X, min_val=-4.0, max_val=4.0):
         """Quantizes continuous feature matrix into CIM level indices."""
-        clipped = np.clip(X, min_val, max_val)
+        clipped = np.clip(X, min_val, max_val) #assuming a normal distribution with a standard deviation of +/-4
         normalized = (clipped - min_val) / (max_val - min_val)
         level_indices = np.floor(normalized * (self.num_levels - 1)).astype(int)
         return level_indices
@@ -47,7 +47,7 @@ class TabularHDCClassifier:
         H_t = threshold( sum( Feature_ID_i XOR Level_Vector_i ) )
         """
         level_vectors = self.CIM[level_indices_row]  # Shape: (32, D)
-        bound_features = np.bitwise_xor(self.feature_IM, level_vectors)  # XOR binding
+        bound_features = np.bitwise_xor(self.feature_IM, level_vectors)  # XOR binding; this is not MAP/BSC
         summed = np.sum(bound_features, axis=0)
         row_hypervector = (summed > (self.num_features / 2)).astype(np.uint8)  # Majority bundling
         return row_hypervector
@@ -99,46 +99,44 @@ class TabularHDCClassifier:
 
         return probabilities
 
-# =========================================================================
-# EXAMPLE USAGE ON SYNTHETIC / REAL GAL TABULAR DATA
-# =========================================================================
-# if __name__ == "__main__":
-#     np.random.seed(42)
-#     num_samples = 2000
-#     num_features = 32
-#     num_events = 6
 
-#     # Generate synthetic 32-channel tabular EEG data with 6 target event labels
-#     X = np.random.normal(0, 1.0, size=(num_samples, num_features))
-#     y = np.random.randint(0, 2, size=(num_samples, num_events))
+# # if __name__ == "__main__":
+# np.random.seed(42)
+# num_samples = 2000
+# num_features = 32
+# num_events = 6
 
-#     # Train / Test Split (70% train, 30% test)
-#     split = int(0.7 * num_samples)
-#     X_train, X_test = X[:split], X[split:]
-#     y_train, y_test = y[:split], y[split:]
+# # Generate synthetic 32-channel tabular EEG data with 6 target event labels
+# X = np.random.normal(0, 1.0, size=(num_samples, num_features))
+# y = np.random.randint(0, 2, size=(num_samples, num_events))
 
-#     # Train Tabular HDC Classifier
-#     hdc = TabularHDCClassifier(D=10000, num_features=num_features, num_levels=21)
-#     hdc.fit(X_train, y_train)
+# # Train / Test Split (70% train, 30% test)
+# split = int(0.7 * num_samples)
+# X_train, X_test = X[:split], X[split:]
+# y_train, y_test = y[:split], y[split:]
 
-#     # Predict Probabilities on Test Data
-#     probs = hdc.predict_proba(X_test)
+# # Train Tabular HDC Classifier
+# hdc = TabularHDCClassifier(D=10000, num_features=num_features, num_levels=21)
+# hdc.fit(X_train, y_train)
 
-#     # Evaluate ROC-AUC and Average Precision (mAP)
-#     cols = ["HandStart", "FirstDigitTouch", "BothStartLoadPhase", "LiftOff", "Replace", "BothReleased"]
-#     print("========================================================================")
-#     print("           TABULAR HDC CLASSIFICATION METRICS (GAL)                     ")
-#     print("========================================================================")
-    
-#     auc_list, ap_list = [], []
-#     for k in range(num_events):
-#         auc = roc_auc_score(y_test[:, k], probs[:, k])
-#         ap = average_precision_score(y_test[:, k], probs[:, k])
-#         auc_list.append(auc)
-#         ap_list.append(ap)
-#         print(f"Event {k+1} ({cols[k]:< 20}): ROC-AUC = {auc:.4f} | Average Precision = {ap:.4f}")
+# # Predict Probabilities on Test Data
+# probs = hdc.predict_proba(X_test)
 
-#     print("------------------------------------------------------------------------")
-#     print(f"Mean ROC-AUC across 6 events:            {np.mean(auc_list):.4f}")
-#     print(f"Mean Average Precision (mAP) across 6 events: {np.mean(ap_list):.4f}")
-#     print("========================================================================")
+# # Evaluate ROC-AUC and Average Precision (mAP)
+# cols = ["HandStart", "FirstDigitTouch", "BothStartLoadPhase", "LiftOff", "Replace", "BothReleased"]
+# print("========================================================================")
+# print("           TABULAR HDC CLASSIFICATION METRICS (GAL)                     ")
+# print("========================================================================")
+
+# auc_list, ap_list = [], []
+# for k in range(num_events):
+#     auc = roc_auc_score(y_test[:, k], probs[:, k])
+#     ap = average_precision_score(y_test[:, k], probs[:, k])
+#     auc_list.append(auc)
+#     ap_list.append(ap)
+#     print(f"Event {k+1} ({cols[k]:< 20}): ROC-AUC = {auc:.4f} | Average Precision = {ap:.4f}")
+
+# print("------------------------------------------------------------------------")
+# print(f"Mean ROC-AUC across 6 events:            {np.mean(auc_list):.4f}")
+# print(f"Mean Average Precision (mAP) across 6 events: {np.mean(ap_list):.4f}")
+# print("========================================================================")

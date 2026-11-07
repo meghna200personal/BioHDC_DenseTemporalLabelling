@@ -12,7 +12,7 @@ EVENTS = ["HandStart", "FirstDigitTouch", "BothStartLoadPhase",
 FS = 500                       # sampling rate in Hz
 N_CHANNELS = 32
 BAND = (7, 30)                 # bandpass edges in Hz
-
+USE_BANDPASS = True             # whether to bandpass the data (defaults to True if the setting is missing)
 SUBJECTS = list(range(1, 13))
 TRAIN_SERIES = [1, 2, 3, 4, 5, 6]   # same split for every model
 VAL_SERIES = [7, 8]                 # held out, labels available
