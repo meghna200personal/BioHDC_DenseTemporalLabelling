@@ -16,7 +16,7 @@ from metrics import dense_metrics
 from tabular_hdc_perceptron import TabularHDCPerceptron
 from tabular_hdc import TabularHDCClassifier
 SUBJECTS_TO_RUN = list(range(1, 13))#        # start with one subject; use list(range(1, 13)) for all
-MODEL = "perceptron"           # "original" (your fit) or "perceptron" (tabular_hdc_perceptron.py)
+MODEL = "perceptron_tiebreak"           # "original" (your fit) or "perceptron" (tabular_hdc_perceptron.py) or "perceptron_tiebreak" (tabular_hdc_tiebreak.py)
 FEATURE = "power"       # DEFAULT for the tabular baseline: bandpassed amplitude, one frame at a time
                             # "power" ADDS temporal context (0.25 s causal average). Use it only as a
                             # labelled extra row, never as the tabular baseline.
@@ -29,6 +29,9 @@ NUM_LEVELS = 21
 def make_model():
     if MODEL == "perceptron":
         return TabularHDCPerceptron(D=D, num_features=config.N_CHANNELS, num_levels=NUM_LEVELS)
+    if MODEL == "perceptron_tiebreak":            # ONE change: random tie-break in encoding
+        from tabular_hdc_tiebreak import TabularHDCPerceptronTieBreak
+        return TabularHDCPerceptronTieBreak(D=D, num_features=config.N_CHANNELS, num_levels=NUM_LEVELS)
     else:
         return TabularHDCClassifier(D=D, num_features=config.N_CHANNELS, num_levels=NUM_LEVELS)
 
@@ -37,7 +40,7 @@ def causal_series(subject, series):
     """Features (N, 32) and labels (N, 6) for one recording. Every step is causal."""
     X, Y = load_series(subject, series)
     # shared toggle: config.USE_BANDPASS (defaults to True if the setting is missing)
-    print("Bandpass filter applied" if getattr(config, 'USE_BANDPASS', True) else "Bandpass filter skipped")
+    # print("Bandpass filter applied" if getattr(config, 'USE_BANDPASS', True) else "Bandpass filter skipped")
     B = bandpass(X) if getattr(config, 'USE_BANDPASS', True) else X
     if FEATURE == "power":
         P = lfilter(np.ones(125) / 125, 1.0, B ** 2, axis=1)  # causal 0.25 s average of power

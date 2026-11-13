@@ -17,21 +17,21 @@ class TabularHDCClassifier:
         np.random.seed(seed)
 
         # 1. Feature ID Item Memory (Orthogonal dense binary hypervectors for each channel column)
-        self.feature_IM = np.random.randint(0, 2, size=(num_features, D), dtype=np.uint8)
-
+        self.feature_IM = np.random.randint(0, 2, size=(num_features, D), dtype=np.uint8) #why is this completely randomized but CIM is having its 1st row as a random vector?
+        # should test reproducibility of results with different seeds and see if it affects performance significantly.
         # 2. Continuous Item Memory (CIM) for quantized amplitude levels
         self.CIM = np.zeros((num_levels, D), dtype=np.uint8)
         base_vector = np.random.randint(0, 2, size=D, dtype=np.uint8)
         self.CIM[0] = base_vector
 
         bits_to_flip = np.random.permutation(D)
-        step = D // (2 * (num_levels - 1))
+        step = D // (2 * (num_levels - 1)) #what is the purpose of this step? Where is it comiing fromg? It seems to be used to determine how many bits to flip for each level in the CIM. The idea is to create a continuous similarity structure across adjacent voltage levels by flipping a certain number of bits in the base vector for each level. The step size determines how many bits are flipped for each level, ensuring that adjacent levels have similar hypervectors while still being distinct enough for classification.
 
         # Generate continuous similarity structure across adjacent voltage levels
         for m in range(1, num_levels):
             level_vector = self.CIM[m - 1].copy()
             flip_indices = bits_to_flip[(m - 1) * step : m * step]
-            level_vector[flip_indices] = 1 - level_vector[flip_indices]
+            level_vector[flip_indices] = 1 - level_vector[flip_indices] #what is this for?
             self.CIM[m] = level_vector
 
     def _quantize(self, X, min_val=-4.0, max_val=4.0):

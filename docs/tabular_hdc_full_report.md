@@ -95,6 +95,46 @@ Per event, mean over 12 subjects, with the amplitude original alongside:
 - HandStart is the one event that did better with amplitude (0.537 against 0.509). A plausible reason is that power is an average over the past, so it lags the onset. This is a hypothesis to check.
 - The gains are small. Averages around 0.51 are only slightly better than chance.
 
+### 3.5 Tie-break in encoding (amplitude, perceptron)
+
+We fixed the tie rule in the encoder: when 16 of 32 channel votes agree on 0 and 16 on 1, the bit now comes from a fixed random coin flip, not always 0. Only this changed. The same settings were run with and without the fix.
+
+| Run | Mean ROC-AUC, 12 subjects | Mean AP |
+|---|---|---|
+| Perceptron, amplitude, no tie-break | 0.478 | 0.037 |
+| Perceptron, amplitude, tie-break | 0.479 | 0.037 |
+
+- Per-subject and per-event changes were at most about 0.002.
+- Training still used 5 rounds for every event.
+- The fix moved the share of 1-bits from 0.44 to 0.50, but the change was the same for every frame, so the ranking of frames barely moved.
+- Conclusion: the tie bias was a real defect, now fixed, but it is not the reason for the weak amplitude result.
+
+### 3.6 Tie-break in encoding (power, perceptron)
+
+Same change as 3.5, now with the power feature. Compared with the power run without the fix.
+
+| Run | Mean ROC-AUC, 12 subjects | Mean AP |
+|---|---|---|
+| Perceptron, power, no tie-break | 0.508 | 0.039 |
+| Perceptron, power, tie-break | 0.507 | 0.039 |
+
+Per event (mean over 12 subjects):
+
+| Event | No tie-break | Tie-break | Change |
+|---|---|---|---|
+| HandStart | 0.509 | 0.511 | +0.002 |
+| FirstDigitTouch | 0.515 | 0.512 | -0.003 |
+| BothStartLoadPhase | 0.514 | 0.511 | -0.002 |
+| LiftOff | 0.496 | 0.493 | -0.003 |
+| Replace | 0.507 | 0.507 | 0.000 |
+| BothReleased | 0.505 | 0.505 | +0.001 |
+
+- The largest change for any one subject on any one event is 0.015.
+- Subjects above 0.5 on average: 7 of 12 in both runs.
+- Events below 0.5 for some subjects: almost unchanged. HandStart went from 7 to 6 subjects below 0.5. The rest are the same.
+- Conclusion: the tie-break does not change the power results either. The inversion pattern seen per subject (for example, 6 of 12 subjects below 0.5 on Replace) is not affected by the tie rule.
+
+
 ---
 
 ## 4. Insights
@@ -112,6 +152,7 @@ Per event, mean over 12 subjects, with the amplitude original alongside:
 6. **Random prototypes score 0.5.** This is evidence the labels, the alignment, and the split are correct.
 
 7. **Subjects differ.** Subject 9 is above 0.5 on every check with amplitude. Subject 8 is the best with power. Differences between people are a question for the leave-one-subject-out phase.
+8. **Fixing a bias does not fix a weak signal.** The tie-break removed a real bias, but every frame shifted the same way, so the ranking barely changed. Correctness fixes and signal fixes answer different questions.
 
 ---
 
@@ -124,7 +165,7 @@ Per event, mean over 12 subjects, with the amplitude original alongside:
 | 3 | The "similarity" code in the report was shown as if it were in the class. It is a vectorised copy of your `predict_proba`. | Fixed: verified identical (difference 0.0) |
 | 4 | I once said the perceptron results were identical because of a wiring bug. They are not. The class runs; the rule just barely changes the prototypes with weak signal. | Corrected |
 | 5 | A synthetic test with bandpass "on" used a constant offset, which the bandpass removes. A 10 Hz burst was used instead. | Fixed in later tests |
-| 6 | Ties in encoding go to 0. Fourteen percent of bits are ties, so about 44% of bits are 1 instead of 50%. | Open: fix as a separate run |
+| 6 | Ties in encoding went to 0. Fourteen percent of bits are ties, so about 44% of bits were 1 instead of 50%. | Fixed with a fixed random tie-break. Effect on results: negligible for amplitude (0.478 to 0.479) and power (0.508 to 0.507) |
 | 7 | The ±4 range assumes standardised input. Min/max or standardise-and-clip are alternatives. | Open |
 | 8 | The perceptron hit the 5-round limit for every event. It never converged. | Open: choose the limit on validation data |
 | 9 | Your original `fit` builds a large int64 matrix. At stride 50 this is about 1.2 GB. Stride 10 would need about 6 GB. | Known limit |
@@ -158,7 +199,7 @@ From our own work:
 ## 7. Next steps (in order, one change per run)
 
 1. **Vectorise the encoder and scorer.** Check that the new version gives identical vectors on a small sample first. This is speed only.
-2. **Random tie-break in encoding.** One change: ties go to a random bit instead of 0. Compare with the current result.
+2. **Random tie-break in encoding.** Done for amplitude and power (both negligible). Next step: change 2 of 3, standardisation, one change per run.
 3. **Bandpass off, amplitude, original.** Tests whether the inversion comes from the filter.
 4. **Causal energy score with smoothing, no HDC.** Tests whether the smoothed direction is correct without any encoding. Label as temporal.
 5. **Signal-strength sweep.** Plant signals of different strengths in fake data. Find where the original and perceptron rules start to differ.
@@ -204,7 +245,49 @@ Reading:
 | `docs/tabular_hdc_comparison.md` | Original vs perceptron rules, side by side |
 | `docs/tabular_hdc_full_report.md` | This document |
 | `code/tabular_gal_block.py` | Runs the tabular model on GAL through the shared pipeline |
+| `code/tabular_hdc_tiebreak.py` | Encoder with a fixed random tie-break, subclass of the perceptron version |
 | `code/tabular_hdc_perceptron.py` | Perceptron-style subclass |
 | `code/tabular_checks.py` | The three checks, one subject |
 | `code/tabular_checks_all_subjects.py` | The three checks, all subjects, with a summary |
 | `v1_base_results.txt` | Original model results, amplitude, 12 subjects |
+
+---
+
+## 10. Papers to read (added after the search)
+
+Status: found by searching. I read titles, abstracts and excerpts, not full texts. Check author, year and venue on the publisher page before citing anything.
+
+### 10.1 Desynchronisation (ERD) in mu and beta rhythms
+
+| Paper | Why it matters here | Link or identifier |
+|---|---|---|
+| Movement-related beta ERD and ERS abnormalities in neuropsychiatric disorders (Frontiers in Neuroscience, 2022) | Basic idea: power drops during movement, then rebounds. Also how the pattern changes in disease | https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2022.1045715/full |
+| Motor Imagery and Motor Execution: A Narrative Review of EEG Signatures (Cureus, 2025) | Recent overview of mu and beta desynchronisation in motor tasks | https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12550537/ |
+| Neural synchrony within the motor system: what have we learned so far? (Frontiers in Human Neuroscience, 2012) | How mu desynchronisation spreads, then focuses over the motor cortex. Relevant to the smoothing and lag question | doi 10.3389/FNHUM.2012.00252 |
+
+### 10.2 Multi-label event detection and overlap
+
+| Paper | Why it matters here | Link or identifier |
+|---|---|---|
+| Concurrent Multi-Label Prediction in Event Streams (AAAI, 2023) | Several labels at once in a stream; concurrent labels are often correlated. Close to our overlap problem | doi 10.1609/AAAI.V37I8.26172 |
+| Unifying Isolated and Overlapping Audio Event Detection with Multi-Label Multi-Task CRNNs (arXiv 1811.01092) | Detects overlapping events per class. Useful for one output per event | https://arxiv.org/pdf/1811.01092 |
+| Radar-Based Continuous Human Activity Recognition with Multi-Label Classification (IEEE Sensors, 2023) | A fixed window can hold several activities at once, so multi-label is the right output | Search the title in the TU Delft repository |
+| HyMAD: Hybrid Multi-Activity Detection (arXiv 2511.14698, 2025) | Concurrent events in seismic signals. Cross-domain example of overlap | https://arxiv.org/pdf/2511.14698v1 |
+
+### 10.3 Non-linear and lighter encoders for HDC
+
+| Paper | Why it matters here | Link or identifier |
+|---|---|---|
+| TempHD (Ni et al., the paper in our proposal) | Non-linear encoding for biosignals, with temporal information from sorting. The kernel route | https://par.nsf.gov/servlets/purl/10423724 |
+| MicroHD: accuracy-driven optimisation of HDC for TinyML (arXiv 2404.00039, 2024) | Compares ID-level encoding with non-linear projection in memory and computation. The cost comparison we need | https://arxiv.org/pdf/2404.00039 |
+| Unleashing Hyperdimensional Computing with Nyström Method based Encoding (NeurIPS 2023, slides) | Builds HDC encoders from kernel functions, using cheaper approximations | https://neurips.cc/media/neurips-2023/Slides/76402.pdf |
+| MeshHD: Near-Linear Encoding for HDC (DATE 2026) | Avoids the dense F × D step, so it scales better with the number of channels | https://past.date-conference.com/proceedings-archive/2026/DATA/1020.pdf |
+| EnHDC: Ensemble Learning for Brain-Inspired HDC (arXiv 2203.13542) | Record and n-gram encoding together, with a sparse random projection for n-gram. Close to our planned comparison | https://arxiv.org/pdf/2203.13542 |
+
+### 10.4 Suggested reading order
+
+1. The 2012 Frontiers review, for the mu and beta mechanism.
+2. The AAAI 2023 paper, for how overlap is handled.
+3. MicroHD, for the cost of ID-level versus projection encoding.
+
+Link each paper to the report section it supports once it has been read in full.
